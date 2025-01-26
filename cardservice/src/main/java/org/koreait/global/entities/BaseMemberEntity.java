@@ -10,15 +10,14 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Data
 @MappedSuperclass
-@EntityListeners(AuditingEntityListener.class) // 자동으로 회원정보가 들어가야해서 넣었음
-public abstract class BaseMemberEntity extends BaseEntity { // 날짜시간도 상속받게
+@EntityListeners(AuditingEntityListener.class)
+public abstract class BaseMemberEntity extends BaseEntity {
 
     @CreatedBy
-    @Column(length = 60, updatable = false) // 수정도 불가하게 설정
+    @Column(length=60, updatable = false)
     private String createdBy;
 
     @LastModifiedBy
-    @Column(length = 60, insertable = false)
+    @Column(length=60, insertable = false)
     private String modifiedBy;
-
 }

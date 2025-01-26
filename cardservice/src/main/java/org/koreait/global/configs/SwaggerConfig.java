@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @OpenAPIDefinition(info=@Info(title="카드 API"))
 public class SwaggerConfig {
-
+    
     @Bean
     public GroupedOpenApi apiGroup() {
         return GroupedOpenApi.builder()

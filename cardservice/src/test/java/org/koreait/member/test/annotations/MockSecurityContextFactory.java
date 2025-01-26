@@ -9,18 +9,19 @@ import org.springframework.security.test.context.support.WithSecurityContextFact
 import java.util.Arrays;
 
 public class MockSecurityContextFactory implements WithSecurityContextFactory<MockMember> {
-
     @Override
     public SecurityContext createSecurityContext(MockMember annotation) {
         Member member = new Member();
         member.setSeq(annotation.seq());
-        member.setName(annotation.name());
         member.setEmail(annotation.email());
-        member.set_authorities(Arrays.stream(annotation.authority()).toString());
+        member.setName(annotation.name());
+        member.set_authorities(Arrays.stream(annotation.authority()).toList());
 
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(member,null, member.getAuthorities());
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(member, null, member.getAuthorities());
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication); // 로그인.....?
+        context.setAuthentication(authentication); //  로그인 처리
+
+        return context;
     }
 }

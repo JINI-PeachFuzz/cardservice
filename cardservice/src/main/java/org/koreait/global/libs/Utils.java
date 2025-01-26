@@ -2,31 +2,30 @@ package org.koreait.global.libs;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.koreait.member.MemberUtil;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.support.ResourceBundleMessageSource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.Errors;
 import org.springframework.validation.FieldError;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Lazy
 @Component
 @RequiredArgsConstructor
 public class Utils {
+
     private final HttpServletRequest request;
     private final MessageSource messageSource;
-    private final DiscoveryClient discoveryClient; // 얘가 인스턴스 주소를 찾아줌 / 주소를 직접 명시하면 안되고 찾아주는걸로
-    // 로컬호스트면 그걸 찾아오고 환경변수로 찾을 수 있게
-
+    private final DiscoveryClient discoveryClient;
+    private final MemberUtil memberUtil;
 
     /**
      * 메서지 코드로 조회된 문구
@@ -60,38 +59,37 @@ public class Utils {
      */
     public Map<String, List<String>> getErrorMessages(Errors errors) {
         ResourceBundleMessageSource ms = (ResourceBundleMessageSource) messageSource;
-        // 메세지는 항상필요하니까 false그건 지웠음
 
-        // 필드별 에러코드 - getFieldErrors()
-        // Collectors.toMap
-        Map<String, List<String>> messages = errors.getFieldErrors()
-                .stream()
-                .collect(Collectors.toMap(FieldError::getField, f -> getMessages(f.getCodes()), (v1, v2) -> v2));
 
-        // 글로벌 에러코드 - getGlobalErrors()
-        List<String> gMessages = errors.getGlobalErrors()
-                .stream()
-                .flatMap(o -> getMessages(o.getCodes()).stream())
-                .toList();
-        // 글로벌 에러코드 필드 - global
-        if (!gMessages.isEmpty()) {
-            messages.put("global", gMessages);
-        }
+            // 필드별 에러코드 - getFieldErrors()
+            // Collectors.toMap
+            Map<String, List<String>> messages = errors.getFieldErrors()
+                    .stream()
+                    .collect(Collectors.toMap(FieldError::getField, f -> getMessages(f.getCodes()), (v1, v2) -> v2));
 
-        return messages;
+            // 글로벌 에러코드 - getGlobalErrors()
+            List<String> gMessages = errors.getGlobalErrors()
+                    .stream()
+                    .flatMap(o -> getMessages(o.getCodes()).stream())
+                    .toList();
+            // 글로벌 에러코드 필드 - global
+            if (!gMessages.isEmpty()) {
+                messages.put("global", gMessages);
+            }
+
+            return messages;
     }
 
-    /***
+    /**
      * 유레카 서버 인스턴스 주소 검색
      *
-     *       spring.profiles.active : dev - localhost로 되어 있는 주소를 반환
+     *      spring.profiles.active : dev - localhost로 되어 있는 주소를 반환
      *          - 예) member-service : 최대 2가지만 존재, 1 - 실 서비스 도메인 주소, 2. localhost ...
      * @param serviceId
      * @param url
      * @return
      */
-    // 서비스 아이디가 필요함 (유레카에서 확인가능) // 유레카서버에서 가져온 주소를 가져오는 걸 하는거
-    public String serviceUrl(String serviceId, String url) {
+    public String  serviceUrl(String serviceId, String url) {
         try {
             List<ServiceInstance> instances = discoveryClient.getInstances(serviceId);
             String profile = System.getenv("spring.profiles.active");
@@ -99,9 +97,9 @@ public class Utils {
             String serviceUrl = null;
             for (ServiceInstance instance : instances) {
                 String uri = instance.getUri().toString();
-                if (isDev && uri.contains("://localhost")) { // 로컬호스트가 있는건 개발할때 사용함
+                if (isDev && uri.contains("localhost")) {
                     serviceUrl = uri;
-                } else if (!isDev && uri.contains("localhost")) {
+                } else if (!isDev && !uri.contains("localhost")) {
                     serviceUrl = uri;
                 }
             }
@@ -112,22 +110,68 @@ public class Utils {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         return "";
     }
 
-    /***
-     * 요청 헤더 : Authorization : Bearer ...
+    /**
+     * 요청 헤더 : Authorizaion: Bearer ...
      * @return
      */
     public String getAuthToken() {
-        String auth = request.getHeader("Authorization"); // 이게 키면 값으로 토큰이 오는거
+        String auth = request.getHeader("Authorization");
 
         return StringUtils.hasText(auth) ? auth.substring(7).trim() : null;
     }
 
+    /**
+     * 전체 주소
+     *
+     * @param url
+     * @return
+     */
     public String getUrl(String url) {
         int port = request.getServerPort();
         String _port = port == 80 || port == 443 ? "" : ":" + port;
         return String.format("%s://%s%s%s%s", request.getScheme(), request.getServerName(), _port, request.getContextPath(), url);
     }
+
+    public boolean isMobile() {
+
+        // 요청 헤더 - User-Agent / 브라우저 정보
+        String ua = request.getHeader("User-Agent");
+        String pattern = ".*(iPhone|iPod|iPad|BlackBerry|Android|Windows CE|LG|MOT|SAMSUNG|SonyEricsson).*";
+
+
+        return StringUtils.hasText(ua) && ua.matches(pattern);
+    }
+
+    /**
+     * 요청 헤더
+     *  - JWT 토큰이 있으면 자동 추가
+     *
+     * @return
+     */
+    public HttpHeaders getRequestHeader() {
+        String token = getAuthToken();
+        HttpHeaders headers = new HttpHeaders();
+        if (StringUtils.hasText(token)) {
+            headers.setBearerAuth(token);
+        }
+
+        return headers;
+    }
+
+    // 회원, 비회원 구분 해시
+    public int getMemberHash() {
+        // 회원 - 회원번호, 비회원 - IP + User-Agent
+        if (memberUtil.isLogin()) return Objects.hash(memberUtil.getMember().getSeq());
+        else { // 비회원
+            String ip = request.getRemoteAddr();
+            String ua = request.getHeader("User-Agent");
+
+            return Objects.hash(ip, ua);
+        }
+    }
+
 }

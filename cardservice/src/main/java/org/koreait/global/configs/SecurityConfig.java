@@ -9,6 +9,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.filter.CorsFilter;
@@ -38,20 +40,24 @@ public class SecurityConfig {
                 .addFilterBefore(corsFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(loginFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(c -> {
-                    c.authenticationEntryPoint((req, res, e) -> {
-                        res.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-                    }); // 미로그인 상태에서 접근 한 경우
-                    c.accessDeniedHandler((req, res, e) -> {
-                        res.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-                    }); // 로그인 후 권한이 없는 경우
+                   c.authenticationEntryPoint((req, res, e) -> {
+                       res.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                   }); // 미로그인 상태에서 접근 한 경우
+                   c.accessDeniedHandler((req, res, e) -> {
+                       res.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                   }); // 로그인 후 권한이 없는 경우
                 })
                 .authorizeHttpRequests(c -> {
-                    c.requestMatchers("/admin/**").hasAnyAuthority("ADMIN")
-                            .anyRequest().permitAll();
+                   c.requestMatchers("/admin/**").hasAnyAuthority("ADMIN")
+                           .anyRequest().permitAll();
                 });
 
 
         return http.build();
     }
 
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 }
